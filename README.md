@@ -2,15 +2,14 @@
 
 ## Description
 
-This patch keeps focus on a fullscreen client when a new window appears. It
-applies to dwm 6.8.
+This patch keeps focus on a visible fullscreen client when focus would
+otherwise move to a normal client. It applies to dwm 6.8.
 
-`manage()` calls `focus(NULL)` for every new client on the selected monitor,
-so Steam update dialogs, chat windows and notifications pull focus off a
-running fullscreen game. Many games then drop fullscreen. With this patch the
-fullscreen client stays selected and focused. The new client is still
-attached, arranged and mapped, and can be reached after the game leaves
-fullscreen or by switching tags.
+When focus would move to a normal client, `focus()` checks that client's
+monitor for a visible fullscreen client. If one exists, the fullscreen client
+keeps focus and is raised above the blocked window. This covers newly managed
+windows and other focus paths. The blocked client remains managed and can be
+reached after the game leaves fullscreen or by switching tags.
 
 ## Configuration
 
@@ -19,9 +18,10 @@ The patch uses the existing `lockfullscreen` option in `config.h`. Set it to
 
 ## Testing
 
-Applies and builds against dwm 6.8. Runtime tested under Xvfb: with a
-fullscreen client focused, a new window no longer becomes
-`_NET_ACTIVE_WINDOW`.
+Applies and builds against dwm 6.8. Runtime tested under Xvfb. A new window
+remained managed, but the fullscreen client kept X input focus, stayed
+`_NET_ACTIVE_WINDOW`, and remained above the new window. Setting
+`lockfullscreen` to 0 restored the original focus behaviour.
 
 ## Download
 

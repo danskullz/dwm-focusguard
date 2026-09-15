@@ -1,53 +1,41 @@
-From a4409c4cb987e486501043e5c1de34833ce15a14 Mon Sep 17 00:00:00 2001
+From 2d620e25e309d539136379e94e65f89c573ba01c Mon Sep 17 00:00:00 2001
 From: Daniel Guihot <daniel@guihot.net>
 Date: Wed, 16 Sep 2026 05:06:53 +1000
-Subject: [PATCH] focusguard: keep focus on fullscreen clients when windows
- spawn
+Subject: [PATCH] focusguard: keep focus on visible fullscreen clients
 
-manage() focuses every new client on the selected monitor, which pulls
-focus off a running fullscreen game and makes many games drop
-fullscreen. Keep the fullscreen client selected and focused while
-lockfullscreen is set. The new client is still attached, arranged and
-mapped, and can be reached after the game leaves fullscreen.
+When focus would move to a normal client, keep it on a visible
+fullscreen client on the same monitor while lockfullscreen is set.
+This covers newly managed windows and other focus paths. Raise the
+fullscreen client after focusing it so the blocked window cannot
+obscure it.
 ---
- dwm.c | 14 ++++++++++----
- 1 file changed, 10 insertions(+), 4 deletions(-)
+ dwm.c | 11 +++++++++++
+ 1 file changed, 11 insertions(+)
 
 diff --git a/dwm.c b/dwm.c
-index 53b393e..0654ea2 100644
+index 53b393e..15913cc 100644
 --- a/dwm.c
 +++ b/dwm.c
-@@ -1031,7 +1031,7 @@ killclient(const Arg *arg)
+@@ -788,8 +788,19 @@ expose(XEvent *e)
  void
- manage(Window w, XWindowAttributes *wa)
+ focus(Client *c)
  {
--	Client *c, *t = NULL;
-+	Client *c, *t = NULL, *fs = NULL;
- 	Window trans = None;
- 	XWindowChanges wc;
- 
-@@ -1080,12 +1080,18 @@ manage(Window w, XWindowAttributes *wa)
- 		(unsigned char *) &(c->win), 1);
- 	XMoveResizeWindow(dpy, c->win, c->x + 2 * sw, c->y, c->w, c->h); /* some windows require this */
- 	setclientstate(c, NormalState);
--	if (c->mon == selmon)
-+	if (c->mon == selmon && lockfullscreen && selmon->sel
-+	&& selmon->sel->isfullscreen)
-+		fs = selmon->sel;
-+	if (c->mon == selmon && !fs)
++	Client *f;
++
+ 	if (!c || !ISVISIBLE(c))
+ 		for (c = selmon->stack; c && !ISVISIBLE(c); c = c->snext);
++	if (lockfullscreen && c && !c->isfullscreen) {
++		for (f = c->mon->stack; f; f = f->snext) {
++			if (ISVISIBLE(f) && f->isfullscreen) {
++				c = f;
++				XRaiseWindow(dpy, c->win);
++				break;
++			}
++		}
++	}
+ 	if (selmon->sel && selmon->sel != c)
  		unfocus(selmon->sel, 0);
--	c->mon->sel = c;
-+	c->mon->sel = fs ? fs : c;
- 	arrange(c->mon);
- 	XMapWindow(dpy, c->win);
--	focus(NULL);
-+	if (fs)
-+		focus(fs);
-+	else
-+		focus(NULL);
- }
- 
- void
+ 	if (c) {
 -- 
 2.55.0
 
